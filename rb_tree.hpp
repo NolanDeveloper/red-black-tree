@@ -191,6 +191,76 @@ struct rb_tree {
         fixup_insert(z);
     }
 
+    void transplant(node_base * u, node_base * v) {
+        if (u->parent == root->parent) {
+            root = v;
+        } else if (u == u->parent->left) {
+            u->parent->left = v;
+        } else {
+            u->parent->right = v;
+        }
+        v->parent = u->parent;
+    }
+
+    node_base * minimum(node_base * x) {
+        while (x->left != root->parent) {
+            x = x->left;
+        }
+        return x;
+    }
+
+    void fixup_erase(node_base * x) {
+        while (x != root->parent) {
+            if (x == x->parent->left) {
+                auto w = x->parent->right;
+                if (w->color == red) {
+                    w->color = black;
+                    x->parent->color = red;
+                    left_rotate(x->parent);
+                    w = x->parent->right;
+                }
+                if (w->left->color == black && w->right->color == black) {
+                    w->color = red;
+                    x = x->parent;
+                } else {
+                    if (w->right->color == black) {
+                        w->left->color = red;
+                        right_rotate(w);
+                        w = x->parent->right;
+                    }
+                    w->color = x->parent->color;
+                    x->parent->color = black;
+                    w->right->color = black;
+                    left_rotate(x->parent);
+                    x = root;
+                }
+            } else {
+                auto w = x->parent->left;
+                if (w->color == red) {
+                    w->color = black;
+                    x->parent->color = red;
+                    right_rotate(x->parent);
+                    w = x->parent->left;
+                }
+                if (w->right->color == black && w->left->color == black) {
+                    w->color = red;
+                    x = x->parent;
+                } else {
+                    if (w->left->color == black) {
+                        w->right->color = red;
+                        left_rotate(w);
+                        w = x->parent->left;
+                    }
+                    w->color = x->parent->color;
+                    x->parent->color = black;
+                    w->left->color = black;
+                    right_rotate(x->parent);
+                    x = root;
+                }
+            }
+        }
+    }
+
 public:
     rb_tree()
             : root(new node_base(nullptr, black)) {
@@ -217,11 +287,46 @@ public:
         other.root->right = other.root;
     }
 
-    void insert(const T & value) {
+    const node_with_value<T> * insert(const T & value) {
         std::unique_ptr<node_with_value<T>> z(
                 new node_with_value<T>(nullptr, black, value));
         insert(z.get());
-        z.release();
+        return z.release();
+    }
+
+    void erase(const node_base * z) {
+        erase(const_cast<node_base *>(z));
+    }
+
+    void erase(node_base * z) {
+        auto y = z;
+        auto y_original_color = y->color;
+        node_base * x;
+        if (z->left == root->parent) {
+            x = z->right;
+            transplant(z, z->right);
+        } else if (z->right == root->parent) {
+            x = z->left;
+            transplant(z, z->left);
+        } else {
+            y = minimum(z->right);
+            y_original_color = y->color;
+            x = y->right;
+            if (y->parent == z) {
+                x->parent = y;
+            } else {
+                transplant(y, y->right);
+                y->right = z->right;
+                y->right->parent = y;
+            }
+            transplant(z, y);
+            y->left = z->left;
+            y->left->parent = y;
+            y->color = z->color;
+        }
+        if (y_original_color == black) {
+            fixup_erase(x);
+        }
     }
 
     ~rb_tree() {

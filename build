@@ -1,7 +1,7 @@
 #!/bin/bash
 compiler=clang++
 flags="--std=c++14 -g -ggdb -Wall -Wextra"
-files=(main)
+files=(main tests)
 for i in ${files[@]}; do
     $compiler -c $i.cpp $flags
 done

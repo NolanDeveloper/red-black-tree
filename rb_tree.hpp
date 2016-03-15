@@ -2,6 +2,9 @@
 #define RB_TREE_HPP
 
 #include <memory>
+#include <iostream>
+#include <iomanip>
+#include <stack>
 
 enum node_color { black, red };
 
@@ -19,8 +22,8 @@ struct node_base {
             , left(left)
             , parent(parent)
             , color(color)  { 
-        right->parent = this;
-        left->parent = this;
+        if (right) right->parent = this;
+        if (left) left->parent = this;
     }
 
     node_base(node_base * parent,
@@ -51,26 +54,18 @@ struct node_with_value : node_base {
 };
 
 template <typename T>
-struct rb_tree {
+class rb_tree {
     node_base * root;
-
-    static node_with_value<T> * right(node_base * node) {
-        return static_cast<node_with_value<T> *>(node->right);
-    }
-
-    static node_with_value<T> * left(node_base * node) {
-        return static_cast<node_with_value<T> *>(node->left);
-    }
 
     static const T & value_of(node_base * node) {
         return static_cast<node_with_value<T> *>(node)->value;
     }
 
-    void free_node(node_with_value<T> * x) {
+    void free_node(node_base * x) {
         while (x != root->parent) {
-            free_node(left(x));
-            auto y = right(x);
-            delete x;
+            free_node(x->left);
+            auto y = x->right;
+            delete static_cast<node_with_value<T> *>(x);
             x = y;
         }
     }
@@ -109,6 +104,7 @@ struct rb_tree {
             x->parent->right = y;
         }
         y->left = x;
+        x->parent = y;
     }
 
     void right_rotate(node_base * x) {
@@ -126,6 +122,7 @@ struct rb_tree {
             x->parent->left = y;
         }
         y->right = x;
+        x->parent = y;
     }
 
     void fixup_insert(node_base * z) {
@@ -164,17 +161,70 @@ struct rb_tree {
                 }
             }
         }
+        root->color = black;
     }
 
-    void insert(node_with_value<T> * z) {
+    unsigned check_nested(node_base * n) {
+        if (n == root->parent) return 0;
+        // check parents
+        if (n->left != root->parent && n->left->parent != n) {
+            std::cout << "left child of " << value_of(n)
+                 << " (" << value_of(n->left) << ") "
+                 << "has wrong parent ";
+            if (n->left->parent != root->parent) {
+                std::cout << value_of(n->left->parent) << std::endl;
+            } else {
+                std::cout << "nil" << std::endl;
+            }
+            throw;
+        }
+        if (n->right != root->parent && n->right->parent != n) { 
+            std::cout << "right child of " << value_of(n)
+                 << " (" << value_of(n->right) << ") "
+                 << "has wrong parent ";
+            if (n->right->parent != root->parent) {
+                std::cout << value_of(n->right->parent)<< std::endl;
+            } else {
+                std::cout << "nil" << std::endl;
+            }
+            throw;
+        }
+        // check other properties of red-black tree
+        if (n->color == red) {
+            if (n->left != root->parent && n->left->color == red) {
+                std::cout << value_of(n) << " is red, but has red child " 
+                          << value_of(n->left) << std::endl;
+                throw;
+            }
+            if (n->right != root->parent && n->right->color == red) {
+                std::cout << value_of(n) << " is red, but has red child " 
+                          << value_of(n->right) << std::endl;
+                throw;
+            }
+        }
+        auto left_black_nodes_to_leaf = check_nested(n->left);
+        auto right_black_nodes_to_leaf = check_nested(n->right);
+        if (left_black_nodes_to_leaf != right_black_nodes_to_leaf) {
+            std::cout << "tree is disbalances below " << value_of(n)
+                 << " left subtree has " << left_black_nodes_to_leaf
+                 << " black nodes to leaf, while right has "
+                 << right_black_nodes_to_leaf << std::endl;
+            throw;
+        }
+        return left_black_nodes_to_leaf + (n->color == black);
+    }
+
+    node_with_value<T> * insert(node_with_value<T> * z) {
         auto y = root->parent;
         auto x = root;
         while (root->parent != x) {
             y = x;
             if (value_of(z) < value_of(x)) {
                 x = x->left;
-            } else {
+            } else if (value_of(x) < value_of(z)) {
                 x = x->right;
+            } else {
+                return nullptr;
             }
         }
         z->parent = y;
@@ -189,6 +239,7 @@ struct rb_tree {
         z->right = root->parent;
         z->color = red;
         fixup_insert(z);
+        return z;
     }
 
     void transplant(node_base * u, node_base * v) {
@@ -210,7 +261,7 @@ struct rb_tree {
     }
 
     void fixup_erase(node_base * x) {
-        while (x != root->parent) {
+        while (x != root->parent && x->color == black) {
             if (x == x->parent->left) {
                 auto w = x->parent->right;
                 if (w->color == red) {
@@ -290,12 +341,27 @@ public:
     const node_with_value<T> * insert(const T & value) {
         std::unique_ptr<node_with_value<T>> z(
                 new node_with_value<T>(nullptr, black, value));
-        insert(z.get());
-        return z.release();
+        auto result = insert(z.get());
+        if (result) z.release();
+        return result;
     }
 
     void erase(const node_base * z) {
         erase(const_cast<node_base *>(z));
+    }
+
+    bool contains(const T & value) {
+        node_base * z = root;
+        while (z != root->parent) {
+            if (value < value_of(z)) {
+                z = z->left;
+            } else if (value > value_of(z)) {
+                z = z->right;
+            } else {
+                return true;
+            }
+        }
+        return false;
     }
 
     void erase(node_base * z) {
@@ -324,6 +390,7 @@ public:
             y->left->parent = y;
             y->color = z->color;
         }
+        delete static_cast<node_with_value<T> *>(z);
         if (y_original_color == black) {
             fixup_erase(x);
         }
@@ -334,11 +401,53 @@ public:
             delete root;
         } else {
             auto nil = root->parent;
-            free_node(static_cast<node_with_value<T> *>(root));
+            free_node(root);
             delete nil;
         }
     }
 
+    void print_by_level(std::ostream & os) {
+        if (!root) os << "<empty>" << std::endl;
+        std::stack<std::pair<node_base *, unsigned>> nodes;
+        auto cur_node = root;
+        auto depth = 1u;
+        while (true) {
+            if (root->parent != cur_node) {
+                nodes.push({ cur_node, depth });
+                cur_node = cur_node->right;
+                depth += 6;
+            } else if (!nodes.empty()) {
+                cur_node = nodes.top().first;
+                depth = nodes.top().second;
+                nodes.pop();
+                os << ">" << std::setw(depth) << ' ' 
+                   << "\033[1;" << (cur_node->color == black ? "34" : "31") << 'm'
+                   << value_of(cur_node)
+                   << "\033[0m"
+                   << std::endl;
+                cur_node = cur_node->left;
+                depth += 6;
+            } else break;
+        }
+        std::cout << std::endl;
+    }
+
+    void check() {
+        if (root->color != black) {
+            std::cout << "root is not black" << std::endl;
+            throw;
+        }
+        if (root->parent->color != black) {
+            std::cout << "nil color is not black" << std::endl;
+        }
+        if (root->parent->left != root->parent) {
+            std::cout << "nil->left != nil" << std::endl;
+        }
+        if (root->parent->right != root->parent) {
+            std::cout << "nil->right != nil" << std::endl;
+        }
+        check_nested(root);
+    }
 
 };
 

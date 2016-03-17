@@ -124,19 +124,20 @@ class rb_tree {
         }
     }
 
-    std::unique_ptr<node_base<T>> copy(const node_base<T> * nil, 
-                                       const node_base<T> * node) const {
-        if (nil == node) {
-            return std::unique_ptr<node_base<T>>(root->get_parent());
+    node_base<T> * copy(const node_base<T> * nil,
+                        const node_base<T> * node) const {
+        if (nil == node) return root->parent;
+        node_base<T> * new_node = new node_with_value<T>(node->value);
+        new_node->set_color(node->get_color());
+        new_node->set_right(root->get_parent());
+        new_node->set_left(root->get_parent());
+        try {
+            new_node->set_right(copy(nil, node->right));
+            new_node->set_left(copy(nil, node->left));
+        } catch (...) {
+            free_nodes(new_node);
+            throw;
         }
-        auto left_copy(copy(nil, node->get_left()));
-        auto right_copy(copy(nil, node->get_right()));
-        auto result = std::make_unique<node_with_value>(
-            right_copy.get(), left_copy.get(), nullptr, 
-            node->get_color(), node->get_value());
-        left_copy.release();
-        right_copy.release();
-        return result;
     }
 
     void left_rotate(node_base<T> * x) {
@@ -357,13 +358,17 @@ class rb_tree {
 public:
 
     rb_tree()
-            : root(new node_base<T>()) {
-    }
+            : root(new node_base<T>()) { }
 
     rb_tree(const rb_tree & other) 
             : root(new node_base<T>()) {
         auto nil = root;
-        root = copy(other.root->get_parent(), other.root).release();
+        try {
+            root = copy(other.root->get_parent(), other.root);
+        } catch (...) {
+            delete root;
+            throw;
+        }
         root->set_parent(nil);
     }
 

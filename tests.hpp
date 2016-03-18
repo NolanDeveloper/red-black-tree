@@ -85,14 +85,6 @@ void check(const node_base<T> * root) {
         std::cout << "nil color is not black" << std::endl;
         throw;
     }
-    if (root->get_parent()->get_left()) {// != root->get_parent()) {
-        std::cout << "nil->get_left() != nullptr" << std::endl;
-        throw;
-    }
-    if (root->get_parent()->get_right()) {// != root->get_parent()) {
-        std::cout << "nil->get_right() != nullptr" << std::endl;
-        throw;
-    }
     check_nested<T>(root->get_parent(), root);
 }
 

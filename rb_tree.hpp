@@ -18,8 +18,8 @@ class node_base {
 public:
 
     node_base()
-            : right(nullptr)
-            , left(nullptr)
+            : right(this)
+            , left(this)
             , parent(this)
             , color(black) { }
 
@@ -107,6 +107,86 @@ public:
 
     const T & get_value() const override {
         return value;
+    }
+
+};
+
+template <typename T>
+class const_rb_tree_iterator {
+    const node_base<T> * node;
+    const node_base<T> * nil;
+
+public:
+
+    const_rb_tree_iterator(const node_base<T> * node, 
+                           const node_base<T> * nil = nullptr)
+            : node(node)
+            , nil(nil) { }
+
+    const_rb_tree_iterator & operator++() {
+        if (node->get_right() == nil) {
+            const node_base<T> * parent;
+            while ((parent = node->get_parent())->get_right() == node) {
+                node = parent;
+            }
+            node = parent;
+        } else {
+            node = node->get_right();
+            while (node->get_left() != nil) {
+                node = node->get_left();
+            }
+        }
+        return *this;
+    }
+
+    const_rb_tree_iterator operator++(int) {
+        const_rb_tree_iterator it(*this);
+        ++(*this);
+        return it;
+    }
+
+    const_rb_tree_iterator & operator--() {
+        if (node == nil) {
+            node = node->get_right();
+            return *this;
+        }
+        if (node->get_left() == nil) {
+            const node_base<T> * parent;
+            while ((parent = node->get_parent())->get_left() == node) {
+                node = parent;
+            }
+            node = parent;
+        } else {
+            node = node->get_left();
+            while (node->get_right() != nil) {
+                node = node->get_right();
+            }
+        }
+        return *this;
+    }
+
+    const_rb_tree_iterator operator--(int) {
+        const_rb_tree_iterator it(*this);
+        --(*this);
+        return it;
+    }
+
+    const node_base<T> & operator*() {
+        return *node;
+    }
+
+    const node_base<T> * operator->() {
+        return node;
+    }
+
+    friend bool operator==(const const_rb_tree_iterator & lhs,
+                           const const_rb_tree_iterator & rhs) {
+        return lhs.nil == rhs.nil && lhs.node == rhs.node;
+    }
+
+    friend bool operator!=(const const_rb_tree_iterator & lhs,
+                           const const_rb_tree_iterator & rhs) {
+        return lhs.nil != rhs.nil || lhs.node != rhs.node;
     }
 
 };
@@ -240,6 +320,17 @@ class rb_tree {
         z->set_right(root->get_parent());
         z->set_color(red);
         fixup_insert(z);
+        if (root == z) {
+            z->get_parent()->set_right(z);
+            z->get_parent()->set_left(z);
+        } else {
+            if (z->get_value() < root->get_parent()->get_left()->get_value()) {
+                root->get_parent()->set_left(z);
+            } else if (root->get_parent()->get_right()->get_value() 
+                       < z->get_value()) {
+                root->get_parent()->set_right(z);
+            }
+        }
         return true;
     }
 
@@ -335,6 +426,12 @@ class rb_tree {
             y->get_left()->set_parent(y);
             y->set_color(z->get_color());
         }
+        if (z == root->get_parent()->get_left()) {
+            root->get_parent()->set_left(z->get_parent());
+        }
+        if (z == root->get_parent()->get_right()) {
+            root->get_parent()->set_right(z->get_parent());
+        }
         delete z;
         if (y_original_color == black) {
             fixup_erase(x);
@@ -356,6 +453,12 @@ public:
             throw;
         }
         root->set_parent(nil);
+        auto leftmost = root;
+        while (leftmost->get_left() != nil) { leftmost = leftmost->get_left(); }
+        nil->set_left(leftmost);
+        auto rightmost = root;
+        while (rightmost->get_right() != nil) { rightmost = rightmost->get_right(); }
+        nil->set_right(rightmost);
     }
 
     rb_tree(rb_tree && other)
@@ -458,80 +561,14 @@ public:
         return root;
     }
 
-};
-
-template <typename T>
-class const_rb_tree_iterator {
-    const node_base<T> * node;
-    const node_base<T> * nil;
-
-public:
-
-    const_rb_tree_iterator(const node_base<T> * node, 
-                           const node_base<T> * nil = nullptr)
-            : node(node)
-            , nil(nil) { }
-
-    const_rb_tree_iterator & operator++() {
-        if (node->get_right() == nil) {
-            const node_base<T> * parent;
-            while ((parent = node->get_parent())->get_right() == node) {
-                node = parent;
-            }
-            node = parent;
-        } else {
-            node = node->get_right();
-            while (node->get_left() != nil) {
-                node = node->get_left();
-            }
-        }
-        return *this;
+    const_rb_tree_iterator<T> begin() const {
+        return const_rb_tree_iterator<T>(root->get_parent()->get_left(), 
+                                         root->get_parent());
     }
 
-    const_rb_tree_iterator operator++(int) {
-        const_rb_tree_iterator it(*this);
-        ++(*this);
-        return it;
-    }
-
-    const_rb_tree_iterator & operator--() {
-        if (node->get_left() == nil) {
-            const node_base<T> * parent;
-            while ((parent = node->get_parent())->get_right() == node) {
-                node = parent;
-            }
-            node = parent;
-        } else {
-            node = node->get_left();
-            while (node->get_right() != nil) {
-                node = node->get_right();
-            }
-        }
-        return *this;
-    }
-
-    const_rb_tree_iterator operator--(int) {
-        const_rb_tree_iterator it(*this);
-        --(*this);
-        return it;
-    }
-
-    const node_base<T> & operator*() {
-        return *node;
-    }
-
-    const node_base<T> * operator->() {
-        return node;
-    }
-
-    friend bool operator==(const const_rb_tree_iterator & lhs,
-                           const const_rb_tree_iterator & rhs) {
-        return lhs.nil == rhs.nil && lhs.node == rhs.node;
-    }
-
-    friend bool operator!=(const const_rb_tree_iterator & lhs,
-                           const const_rb_tree_iterator & rhs) {
-        return lhs.nil != rhs.nil || lhs.node != rhs.node;
+    const_rb_tree_iterator<T> end() const {
+        return const_rb_tree_iterator<T>(root->get_parent(), 
+                                         root->get_parent());
     }
 
 };

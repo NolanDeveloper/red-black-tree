@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <iterator>
+#include <chrono>
 
 void demo() {
     rb_tree<int> test_tree;
@@ -41,9 +42,46 @@ void demo() {
     
 }
 
+void measure(unsigned n) {
+    using namespace std::chrono;
+
+    std::cout << std::setw(7) << n << ",";
+
+    {
+        rb_tree<int> x;
+        auto start = std::chrono::high_resolution_clock::now();
+        for (auto i = 1u; i < n; ++i) {
+            x.insert(rand());
+        }
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << std::setw(14)
+                  << duration_cast<milliseconds>(duration).count()
+                  << ",";
+    }
+
+    {
+        std::set<int> x;
+        auto start = std::chrono::high_resolution_clock::now();
+        for (auto i = 1u; i < n; ++i) {
+            x.insert(rand());
+        }
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << std::setw(14)
+                  << duration_cast<milliseconds>(duration).count()
+                  << "," << std::endl;
+    }
+}
+
 int main() {
-    test();
-    demo();
+    //test();
+    //demo();
+
+    std::cout << std::setw(23) << "my impl(ms)" 
+              << std::setw(15) << "std::set(ms)" << std::endl;
+    for (unsigned n = 100000; n < 1000000; n += 100000) {
+        measure(n);
+    }
+
     return 0;
 }
 

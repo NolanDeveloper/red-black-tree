@@ -19,17 +19,47 @@ bool are_equal_trees(const node_base<T> * lhs, const node_base<T> * rhs) {
 }
 
 template <typename T>
+void print_by_level(std::ostream & os, const node_base<T> * root) {
+    if (!root) os << "<empty>" << std::endl;
+    std::stack<std::pair<const node_base<T> *, unsigned>> nodes;
+    auto cur_node = root;
+    auto depth = 1u;
+    while (true) {
+        if (root->get_parent() != cur_node) {
+            nodes.push(std::make_pair(cur_node, depth));
+            cur_node = cur_node->get_right();
+            depth += 6;
+        } else if (!nodes.empty()) {
+            cur_node = nodes.top().first;
+            depth = nodes.top().second;
+            nodes.pop();
+            os << ">" << std::setw(depth) << ' ' 
+               << "\033[1;" << (cur_node->get_color() == black ? "34" : "31") 
+               << 'm' << cur_node->get_value()
+               << "\033[0m"
+               << std::endl;
+            cur_node = cur_node->get_left();
+            depth += 6;
+        } else break;
+    }
+    os << std::endl;
+}
+
+template <typename T>
 void assert_equal(const node_base<T> * expected,
                   const node_base<T> * actual) {
     if (are_equal_trees(expected, actual)) return;
-    std::cout << "trees are not equal" << std::endl;
+    std::cout << "expected:" << std::endl;
+    print_by_level(std::cout, expected);
+    std::cout << "but actual: " << std::endl;
+    print_by_level(std::cout, actual);
     throw;
 }
 
 template <typename T>
-void free_node(const node_base<T> * node) {
-    while (node) {
-        free_node(node->get_right());
+void free_nodes(const node_base<T> * node, const node_base<T> * nil = nullptr) {
+    while (node != nil) {
+        free_nodes(node->get_right(), nil);
         auto left = node->get_left();
         delete node;
         node = left;
@@ -43,8 +73,8 @@ node_base<T> * make_node(node_base<T> * right,
     try {
         return new node_with_value<T>(right, left, nullptr, color, value);
     } catch (...) {
-        free_node(right);
-        free_node(left);
+        free_nodes(right);
+        free_nodes(left);
         throw;
     }
 }
@@ -82,42 +112,290 @@ void replace_nullptr_with_nil(node_base<T> * nil,
 }
 
 template <typename T>
-node_base<T> * as_tree(node_base<T> * root) {
+class root_holder {
+    const node_base<T> * root;
+
+public:
+
+    root_holder(const node_base<T> * root)
+            : root(root) { }
+
+    root_holder(const node_base<T> & root_holder) = delete;
+
+    ~root_holder() {
+        free_nodes(root, root->get_parent());
+    }
+
+    const node_base<T> * get_root() const {
+        return root;
+    }
+};
+
+template <typename T>
+root_holder<T> as_tree(node_base<T> * root) {
     node_base<T> * nil;
     try {
-       nil = new node_base<T>();
+        nil = new node_base<T>();
     } catch (...) {
-        free_node(root);
+        free_nodes(root);
         throw;
     }
     root->set_parent(nil);
     replace_nullptr_with_nil(nil, root);
-    return root;
+    return root_holder<T>(root);
 }
 
-void insert_1() {
-    const node_base<double> * expected = 
-        as_tree(make_node<double>(1, black));
-    rb_tree<double> actual;
+void insert_1_seq() {
+    auto expected = 
+        as_tree(make_node(1, black));
+    rb_tree<int> actual;
     actual.insert(1);
-    assert_equal(expected, actual.get_root());
+    assert_equal(expected.get_root(), actual.get_root());
 }
 
-void insert_1_2_3() {
-    const node_base<double> * expected = 
+void insert_2_seq() {
+    auto expected =
         as_tree(
             make_node(
-                make_node(3., red),
-                2., black,
-                make_node(1., red)));
-    rb_tree<double> actual;
+                make_node(2, red),
+                1, black));
+    rb_tree<int> actual;
+    actual.insert(1);
+    actual.insert(2);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_3_seq() {
+    auto expected = 
+        as_tree(
+            make_node(
+                make_node(3, red),
+                2, black,
+                make_node(1, red)));
+    rb_tree<int> actual;
     actual.insert(1);
     actual.insert(2);
     actual.insert(3);
-    assert_equal(expected, actual.get_root());
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_4_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(4, red),
+                    3, black),
+                2, black,
+                make_node(1, black)));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 4; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_5_seq() {
+    auto expected = 
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(5, red),
+                    4, black,
+                    make_node(3, red)),
+                2, black,
+                make_node(1, black)));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 5; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_6_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(6, red),
+                        5, black),
+                    4, red,
+                    make_node(3, black)),
+                2, black,
+                make_node(1, black)));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 6; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_7_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(7, red),
+                        6, black,
+                        make_node(5, red)),
+                    4, red,
+                    make_node(3, black)),
+                2, black,
+                make_node(1, black)));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 7; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_8_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(8, red),
+                        7, black),
+                    6, red,
+                    make_node(5, black)),
+                4, black,
+                make_node(
+                    make_node(3, black),
+                    2, red,
+                    make_node(1, black))));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 8; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_9_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(9, red),
+                        8, black,
+                        make_node(7, red)),
+                    6, red,
+                    make_node(5, black)),
+                4, black,
+                make_node(
+                    make_node(3, black),
+                    2, red,
+                    make_node(1, black))));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 9; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_10_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(
+                            make_node(10, red),
+                            9, black),
+                        8, red,
+                        make_node(7, black)),
+                    6, black,
+                    make_node(5, black)),
+                4, black,
+                make_node(
+                    make_node(3, black),
+                    2, black,
+                    make_node(1, black))));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 10; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_11_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(
+                            make_node(11, red),
+                            10, black,
+                            make_node(9, red)),
+                        8, red,
+                        make_node(7, black)),
+                    6, black,
+                    make_node(5, black)),
+                4, black,
+                make_node(
+                    make_node(3, black),
+                    2, black,
+                    make_node(1, black))));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 11; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_12_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(
+                            make_node(12, red),
+                            11, black),
+                        10, red,
+                        make_node(9, black)),
+                    8, black,
+                    make_node(
+                        make_node(7, black),
+                        6, red,
+                        make_node(5, black))),
+                4, black,
+                make_node(
+                    make_node(3, black),
+                    2, black,
+                    make_node(1, black))));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 12; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
+}
+
+void insert_13_seq() {
+    auto expected =
+        as_tree(
+            make_node(
+                make_node(
+                    make_node(
+                        make_node(
+                            make_node(13, red),
+                            12, black,
+                            make_node(11, red)),
+                        10, red,
+                        make_node(9, black)),
+                    8, black,
+                    make_node(
+                        make_node(7, black),
+                        6, red,
+                        make_node(5, black))),
+                4, black,
+                make_node(
+                    make_node(3, black),
+                    2, black,
+                    make_node(1, black))));
+    rb_tree<int> actual;
+    for (int i = 1; i <= 13; ++i) actual.insert(i);
+    assert_equal(expected.get_root(), actual.get_root());
 }
 
 void test() {
-    insert_1();
-    insert_1_2_3();
+    insert_1_seq();
+    insert_2_seq();
+    insert_3_seq();
+    insert_4_seq();
+    insert_5_seq();
+    insert_6_seq();
+    insert_7_seq();
+    insert_8_seq();
+    insert_9_seq();
+    insert_10_seq();
+    insert_11_seq();
+    insert_12_seq();
+    insert_13_seq();
 }

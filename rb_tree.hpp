@@ -254,20 +254,6 @@ class rb_tree {
         v->set_parent(u->get_parent());
     }
 
-    const node_base<T> * minimum(const node_base<T> * x) const {
-        while (x->get_left() != root->get_parent()) {
-            x = x->get_left();
-        }
-        return x;
-    }
-
-    node_base<T> * minimum(node_base<T> * x) const {
-        while (x->get_left() != root->get_parent()) {
-            x = x->get_left();
-        }
-        return x;
-    }
-
     void fixup_erase(node_base<T> * x) {
         while (x != root && x->get_color() == black) {
             if (x == x->get_parent()->get_left()) {
@@ -385,6 +371,20 @@ public:
         delete nil;
     }
 
+    const node_base<T> * minimum(const node_base<T> * x) const {
+        while (x->get_left() != root->get_parent()) {
+            x = x->get_left();
+        }
+        return x;
+    }
+
+    node_base<T> * minimum(node_base<T> * x) const {
+        while (x->get_left() != root->get_parent()) {
+            x = x->get_left();
+        }
+        return x;
+    }
+
     const node_base<T> * insert(const T & value) {
         auto z = std::make_unique<node_with_value<T>>(value);
         if (insert(z.get())) {
@@ -456,6 +456,82 @@ public:
 
     const node_base<T> * get_root() const {
         return root;
+    }
+
+};
+
+template <typename T>
+class const_rb_tree_iterator {
+    const node_base<T> * node;
+    const node_base<T> * nil;
+
+public:
+
+    const_rb_tree_iterator(const node_base<T> * node, 
+                           const node_base<T> * nil = nullptr)
+            : node(node)
+            , nil(nil) { }
+
+    const_rb_tree_iterator & operator++() {
+        if (node->get_right() == nil) {
+            const node_base<T> * parent;
+            while ((parent = node->get_parent())->get_right() == node) {
+                node = parent;
+            }
+            node = parent;
+        } else {
+            node = node->get_right();
+            while (node->get_left() != nil) {
+                node = node->get_left();
+            }
+        }
+        return *this;
+    }
+
+    const_rb_tree_iterator operator++(int) {
+        const_rb_tree_iterator it(*this);
+        ++(*this);
+        return it;
+    }
+
+    const_rb_tree_iterator & operator--() {
+        if (node->get_left() == nil) {
+            const node_base<T> * parent;
+            while ((parent = node->get_parent())->get_right() == node) {
+                node = parent;
+            }
+            node = parent;
+        } else {
+            node = node->get_left();
+            while (node->get_right() != nil) {
+                node = node->get_right();
+            }
+        }
+        return *this;
+    }
+
+    const_rb_tree_iterator operator--(int) {
+        const_rb_tree_iterator it(*this);
+        --(*this);
+        return it;
+    }
+
+    const node_base<T> & operator*() {
+        return *node;
+    }
+
+    const node_base<T> * operator->() {
+        return node;
+    }
+
+    friend bool operator==(const const_rb_tree_iterator & lhs,
+                           const const_rb_tree_iterator & rhs) {
+        return lhs.nil == rhs.nil && lhs.node == rhs.node;
+    }
+
+    friend bool operator!=(const const_rb_tree_iterator & lhs,
+                           const const_rb_tree_iterator & rhs) {
+        return lhs.nil != rhs.nil || lhs.node != rhs.node;
     }
 
 };

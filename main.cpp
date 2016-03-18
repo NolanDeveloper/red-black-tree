@@ -25,11 +25,25 @@ void demo() {
         check<int>(test_tree.get_root());
         nodes_to_delete.erase(it->first);
     }
+
+    // iterator demo
+    auto nil = test_tree.get_root()->get_parent();
+    auto first = test_tree.get_root();
+    while (first->get_left() != nil) first = first->get_left();
+    const_rb_tree_iterator<int> begin(first, nil);
+    const_rb_tree_iterator<int> end(nil, nil);
+    while (begin != end) {
+        std::cout << begin->get_value() << " ";
+        ++begin;
+    }
+    std::cout << std::endl;
+
+    
 }
 
 int main() {
     test();
-    //demo();
+    demo();
     return 0;
 }
 

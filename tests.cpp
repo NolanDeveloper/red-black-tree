@@ -8,14 +8,14 @@ bool are_equal_nodes(const node_base<T> * lnil, const node_base<T> * lhs,
     if (lhs == lnil && rhs == rnil) return true;
     if (lhs == lnil || rhs == rnil) return false;
     return lhs->get_value() == rhs->get_value() &&
-           lhs->get_color() == rhs->get_color() &&
-           are_equal_nodes(lnil, lhs->get_left(), rnil, rhs->get_left()) &&
-           are_equal_nodes(lnil, lhs->get_right(), rnil, rhs->get_right());
+           lhs->color == rhs->color &&
+           are_equal_nodes(lnil, lhs->left, rnil, rhs->left) &&
+           are_equal_nodes(lnil, lhs->right, rnil, rhs->right);
 }
 
 template <typename T>
 bool are_equal_trees(const node_base<T> * lhs, const node_base<T> * rhs) {
-    return are_equal_nodes(lhs->get_parent(), lhs, rhs->get_parent(), rhs);
+    return are_equal_nodes(lhs->parent, lhs, rhs->parent, rhs);
 }
 
 template <typename T>
@@ -25,20 +25,20 @@ void print_by_level(std::ostream & os, const node_base<T> * root) {
     auto cur_node = root;
     auto depth = 1u;
     while (true) {
-        if (root->get_parent() != cur_node) {
+        if (root->parent != cur_node) {
             nodes.push(std::make_pair(cur_node, depth));
-            cur_node = cur_node->get_right();
+            cur_node = cur_node->right;
             depth += 6;
         } else if (!nodes.empty()) {
             cur_node = nodes.top().first;
             depth = nodes.top().second;
             nodes.pop();
-            os << ">" << std::setw(depth) << ' ' 
-               << "\033[1;" << (cur_node->get_color() == black ? "34" : "31") 
+            os << ">" << std::setw(depth) << ' '
+               << "\033[1;" << (cur_node->color == black ? "34" : "31")
                << 'm' << cur_node->get_value()
                << "\033[0m"
                << std::endl;
-            cur_node = cur_node->get_left();
+            cur_node = cur_node->left;
             depth += 6;
         } else break;
     }
@@ -59,8 +59,8 @@ void assert_equal(const node_base<T> * expected,
 template <typename T>
 void free_nodes(const node_base<T> * node, const node_base<T> * nil = nullptr) {
     while (node != nil) {
-        free_nodes(node->get_right(), nil);
-        auto left = node->get_left();
+        free_nodes(node->right, nil);
+        auto left = node->left;
         delete node;
         node = left;
     }
@@ -99,23 +99,21 @@ node_base<T> * make_node(const T & value, node_color color) {
 template <typename T>
 void replace_nullptr_with_nil(node_base<T> * nil,
                               node_base<T> * node) {
-    if (node->get_right()) {
-        replace_nullptr_with_nil(nil, node->get_right());
+    if (node->right) {
+        replace_nullptr_with_nil(nil, node->right);
     } else {
-        node->set_right(nil); 
+        node->right = nil;
     }
-    if (node->get_left()) {
-        replace_nullptr_with_nil(nil, node->get_left());
+    if (node->left) {
+        replace_nullptr_with_nil(nil, node->left);
     } else {
-        node->set_left(nil);
+        node->left = nil;
     }
 }
 
 template <typename T>
-class root_holder {
-    const node_base<T> * root;
-
-public:
+struct root_holder {
+    const node_base<T> * const root;
 
     root_holder(const node_base<T> * root)
             : root(root) { }
@@ -123,11 +121,7 @@ public:
     root_holder(const node_base<T> & root_holder) = delete;
 
     ~root_holder() {
-        free_nodes(root, root->get_parent());
-    }
-
-    const node_base<T> * get_root() const {
-        return root;
+        free_nodes(root, root->parent);
     }
 };
 
@@ -140,17 +134,17 @@ root_holder<T> as_tree(node_base<T> * root) {
         free_nodes(root);
         throw;
     }
-    root->set_parent(nil);
+    root->parent = nil;
     replace_nullptr_with_nil(nil, root);
     return root_holder<T>(root);
 }
 
 void insert_1_seq() {
-    auto expected = 
+    auto expected =
         as_tree(make_node(1, black));
     rb_tree<int> actual;
     actual.insert(1);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_2_seq() {
@@ -162,11 +156,11 @@ void insert_2_seq() {
     rb_tree<int> actual;
     actual.insert(1);
     actual.insert(2);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_3_seq() {
-    auto expected = 
+    auto expected =
         as_tree(
             make_node(
                 make_node(3, red),
@@ -176,7 +170,7 @@ void insert_3_seq() {
     actual.insert(1);
     actual.insert(2);
     actual.insert(3);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_4_seq() {
@@ -190,11 +184,11 @@ void insert_4_seq() {
                 make_node(1, black)));
     rb_tree<int> actual;
     for (int i = 1; i <= 4; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_5_seq() {
-    auto expected = 
+    auto expected =
         as_tree(
             make_node(
                 make_node(
@@ -205,7 +199,7 @@ void insert_5_seq() {
                 make_node(1, black)));
     rb_tree<int> actual;
     for (int i = 1; i <= 5; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_6_seq() {
@@ -222,7 +216,7 @@ void insert_6_seq() {
                 make_node(1, black)));
     rb_tree<int> actual;
     for (int i = 1; i <= 6; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_7_seq() {
@@ -240,7 +234,7 @@ void insert_7_seq() {
                 make_node(1, black)));
     rb_tree<int> actual;
     for (int i = 1; i <= 7; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_8_seq() {
@@ -260,7 +254,7 @@ void insert_8_seq() {
                     make_node(1, black))));
     rb_tree<int> actual;
     for (int i = 1; i <= 8; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_9_seq() {
@@ -281,7 +275,7 @@ void insert_9_seq() {
                     make_node(1, black))));
     rb_tree<int> actual;
     for (int i = 1; i <= 9; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_10_seq() {
@@ -304,7 +298,7 @@ void insert_10_seq() {
                     make_node(1, black))));
     rb_tree<int> actual;
     for (int i = 1; i <= 10; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_11_seq() {
@@ -328,7 +322,7 @@ void insert_11_seq() {
                     make_node(1, black))));
     rb_tree<int> actual;
     for (int i = 1; i <= 11; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_12_seq() {
@@ -354,7 +348,7 @@ void insert_12_seq() {
                     make_node(1, black))));
     rb_tree<int> actual;
     for (int i = 1; i <= 12; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void insert_13_seq() {
@@ -381,7 +375,7 @@ void insert_13_seq() {
                     make_node(1, black))));
     rb_tree<int> actual;
     for (int i = 1; i <= 13; ++i) actual.insert(i);
-    assert_equal(expected.get_root(), actual.get_root());
+    assert_equal(expected.root, actual.get_root());
 }
 
 void test() {

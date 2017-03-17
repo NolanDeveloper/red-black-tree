@@ -28,9 +28,9 @@ void demo() {
     }
 
     // iterator demo
-    auto nil = test_tree.get_root()->get_parent();
+    auto nil = test_tree.get_root()->parent;
     auto first = test_tree.get_root();
-    while (first->get_left() != nil) first = first->get_left();
+    while (first->left != nil) first = first->left;
     const_rb_tree_iterator<int> begin(first, nil);
     const_rb_tree_iterator<int> end(nil, nil);
     while (begin != end) {
@@ -81,7 +81,7 @@ void measure_n(unsigned n) {
 }
 
 void measure() {
-    std::cout << std::setw(23) << "my impl(ms)" 
+    std::cout << std::setw(23) << "my impl(ms)"
               << std::setw(15) << "std::set(ms)" << std::endl;
     for (unsigned n = 100000; n < 1000000; n += 100000) {
         measure_n(n);

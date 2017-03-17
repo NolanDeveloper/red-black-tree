@@ -9,13 +9,11 @@
 enum node_color { black, red };
 
 template <typename T>
-class node_base {
+struct node_base {
     node_base * right;
     node_base * left;
     node_base * parent;
     node_color color;
-
-public:
 
     node_base()
             : right(this)
@@ -23,63 +21,19 @@ public:
             , parent(this)
             , color(black) { }
 
-    node_base(node_base * right, 
+    node_base(node_base * right,
               node_base * left,
               node_base * parent,
               node_color color)
             : right(right)
             , left(left)
             , parent(parent)
-            , color(color)  { 
+            , color(color)  {
         if (right) right->parent = this;
         if (left) left->parent = this;
     }
 
     virtual ~node_base() { }
-
-    void set_right(node_base * right) {
-        this->right = right;
-    }
-
-    node_base * get_right() {
-        return right; 
-    }
-
-    const node_base * get_right() const {
-        return right; 
-    }
-
-    void set_left(node_base * left) {
-        this->left = left;
-    }
-
-    node_base * get_left() {
-        return left; 
-    }
-
-    const node_base * get_left() const {
-        return left; 
-    }
-
-    void set_parent(node_base * parent) {
-        this->parent = parent;
-    }
-
-    node_base * get_parent() {
-        return parent; 
-    }
-
-    const node_base * get_parent() const {
-        return parent; 
-    }
-
-    void set_color(node_color color) {
-        this->color = color;
-    }
-
-    node_color get_color() const {
-        return color;
-    }
 
     virtual const T & get_value() const {
         throw std::logic_error("this node doesn't have a value");
@@ -93,7 +47,7 @@ class node_with_value : public node_base<T> {
 
 public:
 
-    node_with_value(node_base<T> * right, 
+    node_with_value(node_base<T> * right,
                     node_base<T> * left,
                     node_base<T> * parent,
                     node_color color,
@@ -118,22 +72,22 @@ class const_rb_tree_iterator {
 
 public:
 
-    const_rb_tree_iterator(const node_base<T> * node, 
+    const_rb_tree_iterator(const node_base<T> * node,
                            const node_base<T> * nil = nullptr)
             : node(node)
             , nil(nil) { }
 
     const_rb_tree_iterator & operator++() {
-        if (node->get_right() == nil) {
+        if (node->right == nil) {
             const node_base<T> * parent;
-            while ((parent = node->get_parent())->get_right() == node) {
+            while ((parent = node->parent)->right == node) {
                 node = parent;
             }
             node = parent;
         } else {
-            node = node->get_right();
-            while (node->get_left() != nil) {
-                node = node->get_left();
+            node = node->right;
+            while (node->left != nil) {
+                node = node->left;
             }
         }
         return *this;
@@ -147,19 +101,19 @@ public:
 
     const_rb_tree_iterator & operator--() {
         if (node == nil) {
-            node = node->get_right();
+            node = node->right;
             return *this;
         }
-        if (node->get_left() == nil) {
+        if (node->left == nil) {
             const node_base<T> * parent;
-            while ((parent = node->get_parent())->get_left() == node) {
+            while ((parent = node->parent)->left == node) {
                 node = parent;
             }
             node = parent;
         } else {
-            node = node->get_left();
-            while (node->get_right() != nil) {
-                node = node->get_right();
+            node = node->left;
+            while (node->right != nil) {
+                node = node->right;
             }
         }
         return *this;
@@ -196,9 +150,9 @@ class rb_tree {
     node_base<T> * root;
 
     void free_nodes(const node_base<T> * x) {
-        while (x != root->get_parent()) {
-            free_nodes(x->get_left());
-            auto y = x->get_right();
+        while (x != root->parent) {
+            free_nodes(x->left);
+            auto y = x->right;
             delete x;
             x = y;
         }
@@ -208,12 +162,12 @@ class rb_tree {
                         const node_base<T> * node) const {
         if (nil == node) return root->parent;
         node_base<T> * new_node = new node_with_value<T>(node->value);
-        new_node->set_color(node->get_color());
-        new_node->set_right(root->get_parent());
-        new_node->set_left(root->get_parent());
+        new_node->color = node->color;
+        new_node->right = root->parent;
+        new_node->left = root->parent;
         try {
-            new_node->set_right(copy(nil, node->right));
-            new_node->set_left(copy(nil, node->left));
+            new_node->right = copy(nil, node->right);
+            new_node->left = copy(nil, node->left);
         } catch (...) {
             free_nodes(new_node);
             throw;
@@ -221,216 +175,216 @@ class rb_tree {
     }
 
     void left_rotate(node_base<T> * x) {
-        auto y = x->get_right();
-        x->set_right(y->get_left());
-        if (y->get_left() != root->get_parent()) {
-            y->get_left()->set_parent(x);
+        auto y = x->right;
+        x->right = y->left;
+        if (y->left != root->parent) {
+            y->left->parent = x;
         }
-        y->set_parent(x->get_parent());
-        if (x->get_parent() == root->get_parent()) {
+        y->parent = x->parent;
+        if (x->parent == root->parent) {
             root = y;
-        } else if (x == x->get_parent()->get_left()) {
-            x->get_parent()->set_left(y);
+        } else if (x == x->parent->left) {
+            x->parent->left = y;
         } else {
-            x->get_parent()->set_right(y);
+            x->parent->right = y;
         }
-        y->set_left(x);
-        x->set_parent(y);
+        y->left = x;
+        x->parent = y;
     }
 
     void right_rotate(node_base<T> * x) {
-        auto y = x->get_left();
-        x->set_left(y->get_right());
-        if (y->get_right() != root->get_parent()) {
-            y->get_right()->set_parent(x);
+        auto y = x->left;
+        x->left = y->right;
+        if (y->right != root->parent) {
+            y->right->parent = x;
         }
-        y->set_parent(x->get_parent());
-        if (x->get_parent() == root->get_parent()) {
+        y->parent = x->parent;
+        if (x->parent == root->parent) {
             root = y;
-        } else if (x == x->get_parent()->get_right()) {
-            x->get_parent()->set_right(y);
+        } else if (x == x->parent->right) {
+            x->parent->right = y;
         } else {
-            x->get_parent()->set_left(y);
+            x->parent->left = y;
         }
-        y->set_right(x);
-        x->set_parent(y);
+        y->right = x;
+        x->parent = y;
     }
 
     void fixup_insert(node_base<T> * z) {
-        while (z->get_parent()->get_color() == red) {
-            if (z->get_parent() == z->get_parent()->get_parent()->get_left()) {
-                auto y = z->get_parent()->get_parent()->get_right();
-                if (y->get_color() == red) {
-                    z->get_parent()->set_color(black);
-                    y->set_color(black);
-                    z->get_parent()->get_parent()->set_color(red);
-                    z = z->get_parent()->get_parent();
+        while (z->parent->color == red) {
+            if (z->parent == z->parent->parent->left) {
+                auto y = z->parent->parent->right;
+                if (y->color == red) {
+                    z->parent->color = black;
+                    y->color = black;
+                    z->parent->parent->color = red;
+                    z = z->parent->parent;
                 } else {
-                    if (z == z->get_parent()->get_right()) {
-                        z = z->get_parent();
+                    if (z == z->parent->right) {
+                        z = z->parent;
                         left_rotate(z);
                     }
-                    z->get_parent()->set_color(black);
-                    z->get_parent()->get_parent()->set_color(red);
-                    right_rotate(z->get_parent()->get_parent());
+                    z->parent->color = black;
+                    z->parent->parent->color = red;
+                    right_rotate(z->parent->parent);
                 }
             } else {
-                auto y = z->get_parent()->get_parent()->get_left();
-                if (y->get_color() == red) {
-                    z->get_parent()->set_color(black);
-                    y->set_color(black);
-                    z->get_parent()->get_parent()->set_color(red);
-                    z = z->get_parent()->get_parent();
+                auto y = z->parent->parent->left;
+                if (y->color == red) {
+                    z->parent->color = black;
+                    y->color = black;
+                    z->parent->parent->color = red;
+                    z = z->parent->parent;
                 } else {
-                    if (z == z->get_parent()->get_left()) {
-                        z = z->get_parent();
+                    if (z == z->parent->left) {
+                        z = z->parent;
                         right_rotate(z);
                     }
-                    z->get_parent()->set_color(black);
-                    z->get_parent()->get_parent()->set_color(red);
-                    left_rotate(z->get_parent()->get_parent());
+                    z->parent->color = black;
+                    z->parent->parent->color = red;
+                    left_rotate(z->parent->parent);
                 }
             }
         }
-        root->set_color(black);
+        root->color = black;
     }
 
     bool insert(node_base<T> * z) {
-        auto y = root->get_parent();
+        auto y = root->parent;
         auto x = root;
-        while (root->get_parent() != x) {
+        while (root->parent != x) {
             y = x;
             if (z->get_value() < x->get_value()) {
-                x = x->get_left();
+                x = x->left;
             } else if (x->get_value() < z->get_value()) {
-                x = x->get_right();
+                x = x->right;
             } else {
                 return false;
             }
         }
-        z->set_parent(y);
-        if (root->get_parent() == y) {
+        z->parent = y;
+        if (root->parent == y) {
             root = z;
         } else if (z->get_value() < y->get_value()) {
-            y->set_left(z);
+            y->left = z;
         } else {
-            y->set_right(z);
+            y->right = z;
         }
-        z->set_left(root->get_parent());
-        z->set_right(root->get_parent());
-        z->set_color(red);
+        z->left = root->parent;
+        z->right = root->parent;
+        z->color = red;
         fixup_insert(z);
         if (root == z) {
-            z->get_parent()->set_right(z);
-            z->get_parent()->set_left(z);
+            z->parent->right = z;
+            z->parent->left = z;
         } else {
-            if (z->get_value() < root->get_parent()->get_left()->get_value()) {
-                root->get_parent()->set_left(z);
-            } else if (root->get_parent()->get_right()->get_value() 
+            if (z->get_value() < root->parent->left->get_value()) {
+                root->parent->left = z;
+            } else if (root->parent->right->get_value()
                        < z->get_value()) {
-                root->get_parent()->set_right(z);
+                root->parent->right = z;
             }
         }
         return true;
     }
 
     void transplant(node_base<T> * u, node_base<T> * v) {
-        if (u->get_parent() == root->get_parent()) {
+        if (u->parent == root->parent) {
             root = v;
-        } else if (u == u->get_parent()->get_left()) {
-            u->get_parent()->set_left(v);
+        } else if (u == u->parent->left) {
+            u->parent->left = v;
         } else {
-            u->get_parent()->set_right(v);
+            u->parent->right = v;
         }
-        v->set_parent(u->get_parent());
+        v->parent = u->parent;
     }
 
     void fixup_erase(node_base<T> * x) {
-        while (x != root && x->get_color() == black) {
-            if (x == x->get_parent()->get_left()) {
-                auto w = x->get_parent()->get_right();
-                if (w->get_color() == red) {
-                    w->set_color(black);
-                    x->get_parent()->set_color(red);
-                    left_rotate(x->get_parent());
-                    w = x->get_parent()->get_right();
+        while (x != root && x->color == black) {
+            if (x == x->parent->left) {
+                auto w = x->parent->right;
+                if (w->color == red) {
+                    w->color = black;
+                    x->parent->color = red;
+                    left_rotate(x->parent);
+                    w = x->parent->right;
                 }
-                if (w->get_left()->get_color() == black && 
-                    w->get_right()->get_color() == black) {
-                    w->set_color(red);
-                    x = x->get_parent();
+                if (w->left->color == black &&
+                    w->right->color == black) {
+                    w->color = red;
+                    x = x->parent;
                 } else {
-                    if (w->get_right()->get_color() == black) {
-                        w->get_left()->set_color(red);
+                    if (w->right->color == black) {
+                        w->left->color = red;
                         right_rotate(w);
-                        w = x->get_parent()->get_right();
+                        w = x->parent->right;
                     }
-                    w->set_color(x->get_parent()->get_color());
-                    x->get_parent()->set_color(black);
-                    w->get_right()->set_color(black);
-                    left_rotate(x->get_parent());
+                    w->color = x->parent->color;
+                    x->parent->color = black;
+                    w->right->color = black;
+                    left_rotate(x->parent);
                     x = root;
                 }
             } else {
-                auto w = x->get_parent()->get_left();
-                if (w->get_color() == red) {
-                    w->set_color(black);
-                    x->get_parent()->set_color(red);
-                    right_rotate(x->get_parent());
-                    w = x->get_parent()->get_left();
+                auto w = x->parent->left;
+                if (w->color == red) {
+                    w->color = black;
+                    x->parent->color = red;
+                    right_rotate(x->parent);
+                    w = x->parent->left;
                 }
-                if (w->get_right()->get_color() == black && 
-                    w->get_left()->get_color() == black) {
-                    w->set_color(red);
-                    x = x->get_parent();
+                if (w->right->color == black &&
+                    w->left->color == black) {
+                    w->color = red;
+                    x = x->parent;
                 } else {
-                    if (w->get_left()->get_color() == black) {
-                        w->get_right()->set_color(red);
+                    if (w->left->color == black) {
+                        w->right->color = red;
                         left_rotate(w);
-                        w = x->get_parent()->get_left();
+                        w = x->parent->left;
                     }
-                    w->set_color(x->get_parent()->get_color());
-                    x->get_parent()->set_color(black);
-                    w->get_left()->set_color(black);
-                    right_rotate(x->get_parent());
+                    w->color = x->parent->color;
+                    x->parent->color = black;
+                    w->left->color = black;
+                    right_rotate(x->parent);
                     x = root;
                 }
             }
         }
-        x->set_color(black);
+        x->color = black;
     }
 
     void erase(node_base<T> * z) {
         node_base<T> * y = z;
-        node_color y_original_color = y->get_color();
+        node_color y_original_color = y->color;
         node_base<T> * x;
-        if (z->get_left() == root->get_parent()) {
-            x = z->get_right();
-            transplant(z, z->get_right());
-        } else if (z->get_right() == root->get_parent()) {
-            x = z->get_left();
-            transplant(z, z->get_left());
+        if (z->left == root->parent) {
+            x = z->right;
+            transplant(z, z->right);
+        } else if (z->right == root->parent) {
+            x = z->left;
+            transplant(z, z->left);
         } else {
-            y = minimum(z->get_right());
-            y_original_color = y->get_color();
-            x = y->get_right();
-            if (y->get_parent() == z) {
-                x->set_parent(y);
+            y = minimum(z->right);
+            y_original_color = y->color;
+            x = y->right;
+            if (y->parent == z) {
+                x->parent = y;
             } else {
-                transplant(y, y->get_right());
-                y->set_right(z->get_right());
-                y->get_right()->set_parent(y);
+                transplant(y, y->right);
+                y->right = z->right;
+                y->right->parent = y;
             }
             transplant(z, y);
-            y->set_left(z->get_left());
-            y->get_left()->set_parent(y);
-            y->set_color(z->get_color());
+            y->left = z->left;
+            y->left->parent = y;
+            y->color = z->color;
         }
-        if (z == root->get_parent()->get_left()) {
-            root->get_parent()->set_left(z->get_parent());
+        if (z == root->parent->left) {
+            root->parent->left = z->parent;
         }
-        if (z == root->get_parent()->get_right()) {
-            root->get_parent()->set_right(z->get_parent());
+        if (z == root->parent->right) {
+            root->parent->right = z->parent;
         }
         delete z;
         if (y_original_color == black) {
@@ -443,22 +397,22 @@ public:
     rb_tree()
             : root(new node_base<T>()) { }
 
-    rb_tree(const rb_tree & other) 
+    rb_tree(const rb_tree & other)
             : root(new node_base<T>()) {
         auto nil = root;
         try {
-            root = copy(other.root->get_parent(), other.root);
+            root = copy(other.root->parent, other.root);
         } catch (...) {
             delete root;
             throw;
         }
-        root->set_parent(nil);
+        root->parent = nil;
         auto leftmost = root;
-        while (leftmost->get_left() != nil) { leftmost = leftmost->get_left(); }
-        nil->set_left(leftmost);
+        while (leftmost->left != nil) { leftmost = leftmost->left; }
+        nil->left = leftmost;
         auto rightmost = root;
-        while (rightmost->get_right() != nil) { rightmost = rightmost->get_right(); }
-        nil->set_right(rightmost);
+        while (rightmost->right != nil) { rightmost = rightmost->right; }
+        nil->right = rightmost;
     }
 
     rb_tree(rb_tree && other)
@@ -469,21 +423,21 @@ public:
     }
 
     ~rb_tree() {
-        auto nil = root->get_parent();
+        auto nil = root->parent;
         free_nodes(root);
         delete nil;
     }
 
     const node_base<T> * minimum(const node_base<T> * x) const {
-        while (x->get_left() != root->get_parent()) {
-            x = x->get_left();
+        while (x->left != root->parent) {
+            x = x->left;
         }
         return x;
     }
 
     node_base<T> * minimum(node_base<T> * x) const {
-        while (x->get_left() != root->get_parent()) {
-            x = x->get_left();
+        while (x->left != root->parent) {
+            x = x->left;
         }
         return x;
     }
@@ -499,11 +453,11 @@ public:
 
     bool contains(const T & value) const {
         const node_base<T> * z = root;
-        while (z != root->get_parent()) {
+        while (z != root->parent) {
             if (value < z->get_value()) {
-                z = z->get_left();
+                z = z->left;
             } else if (value > z->get_value()) {
-                z = z->get_right();
+                z = z->right;
             } else {
                 return true;
             }
@@ -521,14 +475,14 @@ public:
 
     const node_base<T> * find(const T & value) const {
         auto x = root;
-        while (x != root->get_parent()) {
+        while (x != root->parent) {
             if (value < x->get_value()) {
-                x = x->get_left();
+                x = x->left;
             } else {
-                x = x->get_right();
+                x = x->right;
             }
         }
-        return x == root->get_parent() ? nullptr : x;
+        return x == root->parent ? nullptr : x;
     }
 
     void print_by_level(std::ostream & os) const {
@@ -537,20 +491,20 @@ public:
         auto cur_node = root;
         auto depth = 1u;
         while (true) {
-            if (root->get_parent() != cur_node) {
+            if (root->parent != cur_node) {
                 nodes.push({ cur_node, depth });
-                cur_node = cur_node->get_right();
+                cur_node = cur_node->right;
                 depth += 6;
             } else if (!nodes.empty()) {
                 cur_node = nodes.top().first;
                 depth = nodes.top().second;
                 nodes.pop();
-                os << ">" << std::setw(depth) << ' ' 
-                   << "\033[1;" << (cur_node->get_color() == black ? "34" : "31") 
+                os << ">" << std::setw(depth) << ' '
+                   << "\033[1;" << (cur_node->color == black ? "34" : "31")
                    << 'm' << cur_node->get_value()
                    << "\033[0m"
                    << std::endl;
-                cur_node = cur_node->get_left();
+                cur_node = cur_node->left;
                 depth += 6;
             } else break;
         }
@@ -562,13 +516,13 @@ public:
     }
 
     const_rb_tree_iterator<T> begin() const {
-        return const_rb_tree_iterator<T>(root->get_parent()->get_left(), 
-                                         root->get_parent());
+        return const_rb_tree_iterator<T>(root->parent->left,
+                                         root->parent);
     }
 
     const_rb_tree_iterator<T> end() const {
-        return const_rb_tree_iterator<T>(root->get_parent(), 
-                                         root->get_parent());
+        return const_rb_tree_iterator<T>(root->parent,
+                                         root->parent);
     }
 
 };
